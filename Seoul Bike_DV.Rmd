@@ -1,0 +1,326 @@
+---
+title: "Seoul Bike Data Analysis"
+subtitle: "<span style='font-size:60%'>Data Visualization Assignment 3</span>"
+author: "Malarchelvi S"
+date: "05 June 2026"
+output:
+  revealjs::revealjs_presentation:
+    df_print: paged
+    self_contained: true
+    theme: white
+    transition: fade
+    center: true
+---
+
+```{r, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+rm(list = ls())
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(lubridate)
+library(tidyverse)
+library(gridExtra)
+library(ggthemes)
+library(psych)
+library(tibble)
+library(knitr)
+library(kableExtra)
+
+bike <- read.csv("SeoulBikeData.csv",check.names = F)
+
+bike <- setNames(bike, c("Date","Rented.Bike.Count","Hour","Temperature","Humidity","Windspeed","Visibility","Dewpointtemperature","SolarRadiation","Rainfall","Snowfall","Seasons","Holiday","FunctioningDay"))
+
+bike$Date <- as.Date(bike$Date, format = "%d/%m/%Y")
+bike$Hour <- factor(bike$Hour, order = TRUE)
+bike$Seasons <- factor(bike$Seasons)
+bike$Holiday <- factor(bike$Holiday)
+bike$FunctioningDay <- factor(bike$FunctioningDay)
+
+bike %>% summarize_all(class) %>% gather(variable, class)
+na_count_per_column <- colSums(is.na(bike))
+zero_count_per_column <- sapply(bike, function(x) sum(x == 0))
+print(na_count_per_column)
+print(zero_count_per_column)
+
+bike2 <- bike %>%
+  filter(Rented.Bike.Count != 0)
+
+dim(bike2)
+dim(bike)
+
+bike$YearMonth <- format(bike$Date, "%Y-%m")
+
+bike_by_month <- bike %>%
+  group_by(YearMonth) %>%
+  summarise(Total.Bike.Count = sum(Rented.Bike.Count))
+
+bike_by_month$FormattedMonth <- format(as.Date(paste0(bike_by_month$YearMonth, "-01")), "%b-%y")
+
+sum(bike$Holiday == 'Holiday')
+(sum(bike$Holiday == 'Holiday') / nrow(bike)) * 100
+
+no_of_days <- length(seq(from = min(bike$Date), to = max(bike$Date), by = 'day')) - 1
+(nrow(bike) / no_of_days) * 365
+
+sum(bike$FunctioningDay == 'Yes')
+
+bike %>%
+  group_by(Seasons) %>%
+  summarize(Total_Rainfall = sum(Rainfall), Total_Snowfall = sum(Snowfall))
+
+snow_days <- bike %>%
+  group_by(Date) %>%
+  filter(Snowfall != 0) %>%
+  summarize(Total_Snowfall = sum(Snowfall))
+nrow(snow_days)
+
+```
+
+---
+
+```{r, echo=FALSE}
+
+ggplot(bike) + 
+  geom_point(aes(x = Date, y = Rented.Bike.Count, color = Seasons), alpha = 0.3) +
+  labs(title = "Scatter plot of Rent Bike Number vs Date", x = "Date", y = "Number of Rented Bikes") +
+  scale_x_date(breaks = "month", date_labels = "%b-%Y") +
+  scale_color_manual(values = c("Autumn" = "springgreen", "Spring" = "skyblue", "Summer" = "tomato", "Winter" = "gold")) +
+  theme_minimal(base_size = 12) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), plot.title = element_text(face = "bold", size = 14, hjust = 0.5), legend.title = element_text(face = "bold"))
+
+
+```
+
+---
+
+```{r, echo=FALSE}
+
+library(patchwork)
+
+theme_custom <- theme_minimal(base_size = 9) +
+  theme(plot.title = element_text(face = "bold", size = 10, hjust = 0.5), axis.title = element_text(face = "bold", size = 9), axis.text = element_text(size = 8))
+
+p1 <- ggplot(bike, aes(x = Temperature, y = Rented.Bike.Count)) + geom_point(alpha = 0.4, color = "#1f77b4") + labs(title = "Bike Rentals vs Temperature") + theme_custom
+p2 <- ggplot(bike, aes(x = Humidity, y = Rented.Bike.Count)) + geom_point(alpha = 0.4, color = "#2ca02c") + labs(title = "Bike Rentals vs Humidity") + theme_custom
+p3 <- ggplot(bike, aes(x = Windspeed, y = Rented.Bike.Count)) + geom_point(alpha = 0.4, color = "#ff7f0e") + labs(title = "Bike Rentals vs Wind Speed") + theme_custom
+p4 <- ggplot(bike, aes(x = Visibility, y = Rented.Bike.Count)) + geom_point(alpha = 0.4, color = "#17becf") + labs(title = "Bike Rentals vs Visibility") + theme_custom
+p5 <- ggplot(bike, aes(x = Dewpointtemperature, y = Rented.Bike.Count)) + geom_point(alpha = 0.4, color = "#9467bd") + labs(title = "Bike Rentals vs Dew Point") + theme_custom
+p6 <- ggplot(bike, aes(x = SolarRadiation, y = Rented.Bike.Count)) + geom_point(alpha = 0.4, color = "#e377c2") + labs(title = "Bike Rentals vs Solar Radiation") + theme_custom
+p7 <- ggplot(bike, aes(x = Rainfall, y = Rented.Bike.Count)) + geom_point(alpha = 0.4, color = "#8c564b") + labs(title = "Bike Rentals vs Rainfall") + theme_custom
+p8 <- ggplot(bike, aes(x = Snowfall, y = Rented.Bike.Count)) + geom_point(alpha = 0.4, color = "#7f7f7f") + labs(title = "Bike Rentals vs Snowfall") + theme_custom
+p9 <- ggplot(bike, aes(x = Hour, y = Rented.Bike.Count)) + geom_point(alpha = 0.4, color = "#bcbd22") + labs(title = "Bike Rentals vs Hour") + theme_custom + theme(axis.text.x = element_text(size = 5, hjust = 1))
+
+(p1 | p2 | p3) / (p4 | p5 | p6) / (p7 | p8 | p9) +
+  plot_annotation(title = "Bike Rentals vs Weather and Time Variables", theme = theme(plot.title = element_text(size = 12, face = "bold", hjust = 0.5)))
+
+```
+
+---
+
+```{r, echo=FALSE, results='hide'}
+
+weather_vars <- c("Temperature", "Humidity", "Windspeed", "Visibility", "Dewpointtemperature", "SolarRadiation", "Rainfall", "Snowfall")
+
+cor_data <- cor(bike[c("Rented.Bike.Count", weather_vars)], use = "complete.obs")
+cor_df <- data.frame(Variable = weather_vars, Correlation = cor_data["Rented.Bike.Count", weather_vars]) %>% arrange(Correlation)
+cor_df$Variable <- factor(cor_df$Variable, levels = cor_df$Variable)
+
+ggplot(cor_df, aes(x = Variable, y = 1, fill = Correlation)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = round(Correlation, 2)), size = 5) +
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0) +
+  labs(title = "Ordered Correlation: Rented Bike Count vs Weather Conditions", x = "Weather Variable", y = "") +
+  theme_minimal(base_size = 13) +
+  theme(axis.text.y = element_blank(), axis.ticks.y = element_blank(), axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+
+```
+
+---
+
+```{r, echo=FALSE,}
+
+normalize <- function(x) (x - min(x, na.rm = TRUE)) / (max(x, na.rm = TRUE) - min(x, na.rm = TRUE))
+
+bike_monthly <- bike %>%
+  mutate(Month = floor_date(as.Date(Date), "month")) %>%
+  group_by(Month) %>%
+  summarise(Temperature = mean(Temperature), SolarRadiation = mean(SolarRadiation), Snowfall = mean(Snowfall), Rainfall = mean(Rainfall)) %>%
+  mutate(across(-Month, normalize)) %>%
+  pivot_longer(-Month, names_to = "Variable", values_to = "Value") %>%
+  mutate(Group = case_when(
+    Variable %in% c("Temperature", "SolarRadiation") ~ "Heat-Related",
+    Variable %in% c("Snowfall", "Rainfall") ~ "Moisture-Related"
+  ))
+
+rentals_dup <- bike %>%
+  mutate(Month = floor_date(Date, "month")) %>%
+  group_by(Month) %>%
+  summarise(Rentals = sum(Rented.Bike.Count)) %>%
+  mutate(Rentals = normalize(Rentals)) %>%
+  rename(Value = Rentals) %>%
+  mutate(Variable = "Rentals") %>%
+  slice(rep(1:n(), each = 2)) %>%
+  mutate(Group = rep(c("Heat-Related", "Moisture-Related"), times = n()/2))
+
+bike_monthly_combined <- bind_rows(bike_monthly, rentals_dup)
+
+season_rects <- data.frame(
+  xmin = as.Date(c("2017-12-01", "2018-03-01", "2018-06-01", "2018-09-01")),
+  xmax = as.Date(c("2018-03-01", "2018-06-01", "2018-09-01", "2018-12-01")),
+  fill = c("Winter", "Spring", "Summer", "Autumn"),
+  col = c("#B88DB8", "#A8BD9D", "#CBB597", "#9FB8C7")
+)
+
+plot_colors <- c("Rentals" = "black", "Temperature" = "#E88B4D", "SolarRadiation" = "#F2C94C", "Snowfall" = "#5FA8DD", "Rainfall" = "#9A6FB5")
+
+ggplot() +
+  geom_rect(data = season_rects, aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf, fill = fill),
+            alpha = 0.2, inherit.aes = FALSE) +
+  geom_smooth(data = bike_monthly_combined, aes(x = Month, y = Value, color = Variable),
+              se = FALSE, method = "loess", span = 0.7, linewidth = 1.3, alpha = 0.85) +
+  scale_fill_manual(values = setNames(season_rects$col, season_rects$fill)) +
+  scale_color_manual(values = plot_colors) +
+  scale_x_date(date_labels = "%b %Y", date_breaks = "1 month") +
+  facet_wrap(~Group, ncol = 1) +
+  labs(
+    title = "Smoothed Monthly Trends by Weather Type",
+    x = "Month",
+    y = "Normalized Value",
+    color = "Variable",
+    fill = "Season"
+  ) +
+  guides(
+    color = guide_legend(order = 1),
+    fill = guide_legend(order = 2, nrow = 1)
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "top",
+    legend.box = "vertical",
+    strip.text = element_text(face = "bold", size = 12)
+  )
+
+```
+
+---
+
+```{r, echo = FALSE}
+
+library(ggplot2)
+library(dplyr)
+
+bike_lm1 <- bike %>%
+  select(Rented.Bike.Count, Temperature, SolarRadiation) %>%
+  filter(!is.na(Rented.Bike.Count), !is.na(Temperature), !is.na(SolarRadiation))
+
+model1 <- lm(Rented.Bike.Count ~ Temperature + SolarRadiation, data = bike_lm1)
+bike_lm1$Predicted <- predict(model1)
+
+ggplot(bike_lm1, aes(x = Predicted, y = Rented.Bike.Count)) +
+  geom_point(alpha = 0.3, color = "red") +
+  geom_abline(intercept = 0, slope = 1, color = "green", linetype = "dashed", linewidth = 1) +
+  labs(
+    title = "Predicted vs Actual Bike Rentals (Temperature & Solar Radiation)",
+    x = "Predicted Rentals",
+    y = "Actual Rentals"
+  ) +
+  theme_minimal(base_size = 13)
+
+```
+
+---
+
+```{r, echo=FALSE,}
+
+bike_lm2 <- bike %>%
+  select(Rented.Bike.Count, Snowfall, Rainfall) %>%
+  filter(!is.na(Rented.Bike.Count), !is.na(Snowfall), !is.na(Rainfall))
+
+model2 <- lm(Rented.Bike.Count ~ Snowfall + Rainfall, data = bike_lm2)
+bike_lm2$Predicted <- predict(model2)
+
+ggplot(bike_lm2, aes(x = Predicted, y = Rented.Bike.Count)) +
+  geom_point(alpha = 0.3, color = "blue") +
+  geom_abline(intercept = 0, slope = 1, color = "green", linetype = "dashed", linewidth = 1) +
+  labs(
+    title = "Predicted vs Actual Bike Rentals (Snowfall & Rainfall Model)",
+    x = "Predicted Rentals",
+    y = "Actual Rentals"
+  ) +
+  theme_minimal(base_size = 13)
+
+```
+
+---
+
+```{r, echo=FALSE,}
+
+bike_lm3 <- bike %>%
+  select(Rented.Bike.Count, Temperature, SolarRadiation, Snowfall, Rainfall) %>%
+  filter(complete.cases(.))
+
+model3 <- lm(Rented.Bike.Count ~ Temperature + SolarRadiation + Snowfall + Rainfall,
+             data = bike_lm3)
+bike_lm3$Predicted <- predict(model3)
+
+ggplot(bike_lm3, aes(x = Predicted, y = Rented.Bike.Count)) +
+  geom_point(alpha = 0.3, color = "purple") +
+  geom_abline(intercept = 0, slope = 1, color = "green", linetype = "dashed", linewidth = 1) +
+  labs(
+    title = "Predicted vs Actual Bike Rentals\n(Seasonal Weather Effects)",
+    x = "Predicted Rentals",
+    y = "Actual Rentals"
+  ) +
+  theme_minimal(base_size = 13)
+
+```
+
+---
+
+```{r, echo=FALSE,}
+
+library(broom)
+
+bike_lm_full <- bike %>%
+  select(Rented.Bike.Count, Temperature, SolarRadiation, Snowfall, Rainfall) %>%
+  filter(complete.cases(.))
+
+model_full <- lm(Rented.Bike.Count ~ Temperature + SolarRadiation + Snowfall + Rainfall,
+                 data = bike_lm_full)
+
+coef_df <- tidy(model_full, conf.int = TRUE)
+coef_df <- coef_df[coef_df$term != "(Intercept)", ]
+
+ggplot(coef_df, aes(x = term, y = estimate)) +
+  geom_point(color = "blue", size = 3) +
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0.2) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  coord_flip() +
+  labs(title = "Effect of Weather Variables on Bike Rentals", x = "Weather Variable", y = "Estimated Impact") +
+  theme_minimal(base_size = 13)
+
+```
+
+---
+
+```{r, echo=FALSE,}
+
+final_summary <- tibble(
+  Weather = c("☀️ Summer", "❄️ Winter", "🌤️ Mixed"),
+  Coefficient = c("+77", "−116", "−39"),
+  Trend = c("⬆️⬆️", "⬇️⬇️", "⬇️"),
+  Pattern = c("📈📈", "📉📉", "📉"),
+  Strength = c("⭐️⭐️⭐️", "⭐️⭐️⭐️", "⭐️⭐️")
+)
+
+final_summary %>%
+  kable("html", escape = FALSE, align = "c", caption = "Summary of Seasonal Bike Rental Trends\n") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width = F)
+
+```
